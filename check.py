@@ -1,4 +1,6 @@
-from src.models.cnn import TF_to_SK, DCNN,get_tf_model
+from src.models.cnn import DCNN
+from src.models.sklearn_wrapper import TF_to_SK
+
 from preprocess.seq_from_text import SeqFromTextConversionSK
 import config
 import pandas as pd
@@ -22,8 +24,7 @@ init_params=dict(
                  FFN_units=512,
                  nb_classes=2)
 
-compiled_model=get_tf_model(DCNN,init_params,compile_params)
-model=TF_to_SK(compiled_tf_model=compiled_model,batch_size=16,epochs=1)
+model=TF_to_SK(DCNN,init_params,compile_params,batch_size=128,epochs=2)
 X=np.array(X)
 y=df[config.LABEL].values
 model.fit(X,y)

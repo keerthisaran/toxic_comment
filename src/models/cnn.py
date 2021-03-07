@@ -1,39 +1,11 @@
 # from ..preprocess import seq_from_text
-from sklearn.base import BaseEstimator, ClassifierMixin
 import tensorflow as tf
 from tensorflow.keras import layers
 import sys
 import os
-from .. import preprocess# import SeqFromTextConversionSK
 import config
 import pandas as pd
 
-class TF_to_SK(BaseEstimator,ClassifierMixin):
-    
-    def __init__(self,model,init_params,compile_params,batch_size=64,epochs=10):
-        # self.model=compiled_tf_model
-        self.batch_size=batch_size
-        self.epochs=epochs
-        self.model=self.get_tf_model(model,init_params,compile_params)
-    
-
-    
-    def compile(self,loss,optimizer,metrics=None):
-        self.model.compile(loss=loss,optimizer=optimizer,metrics=metrics)
-        
-    def fit(self,X,y):
-        self.model.fit(X,y,batch_size=self.batch_size,epochs=self.epochs)
-        
-    
-    def predict(self,X):
-        return self.model(X)
-
-    def get_tf_model(self,model,init_params,compile_params):
-        
-        init_model=model(**init_params)
-        init_model.compile(**compile_params)
-
-        return init_model
 
 
 class DCNN(tf.keras.Model):
@@ -90,10 +62,12 @@ class DCNN(tf.keras.Model):
         output = self.last_dense(merged)
         
         return output
+    
+    def model(self):
+        #for model summary this function initializes the graph
+        #DCNN(vocab_size=1000).model().summary()
+        x = tf.keras.layers.Input(shape=(None,),name='Input')
+        return tf.keras.Model(inputs=[x], outputs=self.call(x,True))
 
 if __name__=='__main__':
-    df=pd.read_csv(config.PROCESSED_FILEPATH)
-    seq_text=preprocess.SeqFromTextConversionSK()
-#     X=seq_text.fit_transform(df[config.PROC_TEXT_COL][:5].astype(str))
-#     print(X)
-    
+    df=pd.read_csv(config.PROCESSED_FILEPATH)    

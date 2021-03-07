@@ -18,7 +18,6 @@ class SeqFromTextConversionSK(BaseEstimator,TransformerMixin):
     def fit(self,X,tokenizer=None):
         if tokenizer is None:
             self.tokenizer=sklearn.feature_extraction.text.CountVectorizer()
-            #tf.keras.preprocessing.text.Tokenizer(oov_token=self.oov_token)
             self.tokenizer.fit(X)
         else:
             self.tokenizer=tokenizer
@@ -36,12 +35,11 @@ class SeqFromTextConversionSK(BaseEstimator,TransformerMixin):
                 seq[i]=vocabulary.get(word,-1)+2
             seqs.append(seq)
                 
-        # seqs=[[vocabulary.get(x,-1)+2 for x in analyzer(line) ] for line in X]
         return np.stack(seqs)
 
     def transform(self,X):
         seqs=self.text_to_seqs_sklearn(X)
-        return seqs #elf.tokenizer.texts_to_sequences(X)
+        return seqs 
 
 if __name__=='__main__':
     df=pd.read_csv(config.PROCESSED_FILEPATH)
