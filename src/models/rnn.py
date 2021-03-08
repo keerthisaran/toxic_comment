@@ -1,83 +1,53 @@
 from abc import ABC, abstractmethod
-from sklearn.ensemble import RandomForestClassifier
-import joblib
-from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.utils.validation import check_X_y, check_is_fitted
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import LinearSVC
-from scipy import sparse
-import numpy as np
-import config
-import os
-import pandas as pd
 import tensorflow as tf
-from sklearn.feature_extraction.text import TfidfVectorizer
+from tensorflow.keras import layers
 
 
 
-class RNN(BaseEstimator, ClassifierMixin):
-    def __init__(self, tokenizer, emb_dim=32,max_len=20, bidirec=True,base='GRU'):
-        self.emb_dim = emb_dim
-        self.max_len=max_len
-        self.bidirec = bidirec
-        self.vocab_size=tokenizer.vocabulary_
-        if base=='GRU':
-            self.base=tf.keras.layers.GRU(vocab_size,emb_dim)
-        else:
-            self.base=tf.keras.layers.LSTM(vocab_size,emb_dim)
+class RNN(tf.keras.Model):
+    
+    def __init__(self,
+                 vocab_size,
+                 emb_dim=128,
+                 gru_units=64,
+                 FFN_units=512,
+                 nb_classes=2,
+                 dropout_rate=0.1,
+                 training=False,
+                 name="dcnn"):
+        super().__init__(name=name)
         
+        self.embedding = layers.Embedding(vocab_size,
+                                          emb_dim)
+        self.gru=tf.keras.layers.Bidirectional(
+                    layer=tf.keras.layers.GRU(units=gru_units))
 
-    def predict(self, x):
-        # Verify that model has been fit
-        check_is_fitted(self, ['_r', '_clf'])
-        return self._clf.predict(x.multiply(self._r))
+        self.dense_1 = layers.Dense(units=FFN_units, activation="relu")
+        self.dropout = layers.Dropout(rate=dropout_rate)
 
-    def predict_proba(self, x):
-        # Verify that model has been fit
-        check_is_fitted(self, ['_r', '_clf'])
-        return self._clf.predict_proba(x.multiply(self._r))
-
-    def fit(self, x, y):
-        # Check that X and y have correct shape
-        y = y.values
-        x, y = check_X_y(x, y, accept_sparse=True)
-
-        def pr(x, y_i, y):
-            p = x[y==y_i].sum(0)
-            return (p+1) / ((y==y_i).sum()+1)
-
-        self._r = sparse.csr_matrix(np.log(pr(x,1,y) / pr(x,0,y)))
-        x_nb = x.multiply(self._r)
-        self._clf = self.classifier.fit(x_nb, y)
-        return self
-
-if __name__=='__main__':
+        if nb_classes == 2:
+            self.last_dense = layers.Dense(units=1,
+                                           activation="sigmoid")
+        else:
+            self.last_dense = layers.Dense(units=nb_classes,
+                                           activation="softmax")
     
-    model=RNN(dual=True,C=4.5)
-    if not os.path.exists(config.PROCESSED_FILEPATH):
-        raise ValueError("processed file doesn't exisit")
-    fold=1
-    df=pd.read_csv(config.PROCESSED_FILEPATH)
-    train_df=df[df[config.KFOLD_COL]!=fold]
-    valid_df=df[df[config.KFOLD_COL]==fold]
-    
-    if os.path.exists(config.TOKENIZER_PATH):
-        tokenizer=tf.keras.preprocessing.text.tokenizer_from_json(config.TOKENIZER_PATH)
-    else:
-        tokenizer = tf.keras.preprocessing.text.Tokenizer()
-        tokenizer.fit_on_texts(train_df[config.TEXT_COL])
-        tokenizer.to_json(config.TOKENIZER_PATH)
-    
-    X_train=tokenizer.text_to_sequences(train_df[config.TEXT_COL])
-    X_test = tokenizer.text_to_sequences(valid_df[config.TEXT_COL])
-    
-    model.fit(X_train,train_df.toxic.astype(int))
-    y_pred_train=model.predict(X_train)
-    y_pred_test=model.predict(X_test)
-    
-    from sklearn.metrics import roc_auc_score,classification_report
-    print(roc_auc_score(y_score=y_pred_train,y_true=train_df[config.LABEL]))
-    print(roc_auc_score(y_score=y_pred_test,y_true=valid_df[config.LABEL]))
+    def call(self, inputs, training=True):
+        
+        x = self.embedding(inputs)
+        gru_last_hidden=self.gru(x)
+        
+        merged = self.dense_1(gru_last_hidden)
+        merged = self.dropout(merged, training)
+        output = self.last_dense(merged)
+        
+        return output
+      
+    def model(self):
+        #for model summary this function initializes the graph
+        #DCNN(vocab_size=1000).model().summary()
+      x = tf.keras.layers.Input(shape=(None,),name='Input')
+      return tf.keras.Model(inputs=[x], outputs=self.call(x,True))
     
     
     
